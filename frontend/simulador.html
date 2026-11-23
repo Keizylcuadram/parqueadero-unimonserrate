@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Hardware IoT & Talanquera LPR - Unimonserrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-6">
+  <div class="max-w-4xl mx-auto space-y-6">
+    <div class="bg-slate-900 p-4 rounded-xl border border-cyan-500/40 flex justify-between items-center">
+      <div>
+        <h1 class="text-xl font-bold text-cyan-400">Consola Protegida de Hardware IoT y Talanquera LPR</h1>
+        <p id="operadorIoT" class="text-xs text-slate-400">Verificando autorización de seguridad...</p>
+      </div>
+      <a href="index.html" class="text-xs bg-slate-800 px-3 py-2 rounded">Volver al Inicio</a>
+    </div>
+
+    <!-- Bloqueo de Llave Maestra de Hardware -->
+    <div class="bg-amber-950/30 border border-amber-500/40 p-4 rounded-xl flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-xs font-bold text-amber-300">🔒 Llave Maestra de Seguridad de Talanquera / Sensores</p>
+        <p class="text-[11px] text-slate-400">Requerida para evitar apertura fraudulenta de talanqueras o manipulación de bahías.</p>
+      </div>
+      <input id="llaveHardware" type="password" placeholder="Ingresa Llave IoT" class="p-2 rounded bg-slate-900 border border-amber-500/60 text-xs font-mono">
+    </div>
+
+    <!-- Simulador Cámara LPR -->
+    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-3">
+      <h2 class="font-bold text-emerald-400">1. Simulador Cámara LPR (Apertura Automática de Talanquera)</h2>
+      <p class="text-xs text-slate-400">Solo abre automáticamente para usuarios con mensualidad vigente (ej. <b>KLM-456</b>). Si no tiene mensualidad (<b>ABC-123</b>), mantiene cerrada y exige QR.</p>
+      <div class="flex gap-2">
+        <input id="placaLPR" type="text" value="KLM-456" class="p-2.5 rounded bg-slate-800 border border-slate-700 uppercase font-bold">
+        <button onclick="simularLPR()" class="bg-emerald-500 text-slate-900 font-bold px-5 rounded">Simular Lectura Cámara</button>
+      </div>
+      <div id="respuestaLPR" class="hidden p-3 rounded text-sm font-semibold"></div>
+    </div>
+
+    <!-- Simulador Sensores Ultrasónicos -->
+    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-3">
+      <h2 class="font-bold text-cyan-400">2. Control de Sensores Ultrasónicos por Bahía (30 Celdas)</h2>
+      <div id="listaSensoresSim" class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs"></div>
+    </div>
+  </div>
+
+  <script>
+    const userLocal = JSON.parse(localStorage.getItem('usuario'));
+    if (!userLocal || (userLocal.rol !== 'guarda' && userLocal.rol !== 'admin')) {
+      alert('ACCESO DENEGADO: Solo personal de Portería en turno o Administración puede operar el hardware IoT y talanqueras.');
+      window.location.href = 'index.html';
+    } else {
+      document.getElementById('operadorIoT').innerText = `Sesión autorizada: ${userLocal.nombre} (${userLocal.rol.toUpperCase()})`;
+    }
+
+    async function simularLPR() {
+      const placa = document.getElementById('placaLPR').value;
+      const llave_iot = document.getElementById('llaveHardware').value.trim();
+      const res = await fetch('/api/lpr/lectura', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({placa, llave_iot})
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail);
+
+      const box = document.getElementById('respuestaLPR');
+      box.classList.remove('hidden');
+      if (data.talanquera === "ABIERTA") {
+        box.className = "p-3 rounded bg-emerald-950 border border-emerald-500 text-emerald-300";
+        box.innerText = `TALANQUERA ABIERTA AUTOMÁTICAMENTE — ${data.motivo}`;
+      } else {
+        box.className = "p-3 rounded bg-rose-950 border border-rose-500 text-rose-300";
+        box.innerText = `TALANQUERA CERRADA — ${data.motivo}`;
+      }
+    }
+
+    async function cargarBahias() {
+      const res = await fetch('/api/iot/estado');
+      const data = await res.json();
+      document.getElementById('listaSensoresSim').innerHTML = data.bahias.map(b => `
+        <div class="bg-slate-800 p-2.5 rounded border border-slate-700 space-y-2">
+          <div class="flex justify-between font-bold">
+            <span>${b.codigo}</span>
+            <span class="${b.ocupada ? 'text-amber-400' : 'text-emerald-400'}">${b.ocupada ? 'OCUP.' : 'LIBRE'}</span>
+          </div>
+          <div class="flex gap-1">
+            <button onclick="cambiarSensor('${b.codigo}', ${!b.ocupada}, ${b.sensor_ok})" class="flex-1 bg-slate-700 hover:bg-slate-600 py-1 rounded">
+              ${b.ocupada ? 'Liberar' : 'Ocupar'}
+            </button>
+            <button onclick="cambiarSensor('${b.codigo}', ${b.ocupada}, ${!b.sensor_ok})" class="px-2 py-1 rounded ${b.sensor_ok ? 'bg-rose-900/50 text-rose-300' : 'bg-emerald-700 text-white'}">
+              ${b.sensor_ok ? 'Dañar' : 'OK'}
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cambiarSensor(codigo, ocupada, sensor_ok) {
+      const llave_iot = document.getElementById('llaveHardware').value.trim();
+      const res = await fetch('/api/iot/sensor', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({codigo, ocupada, sensor_ok, llave_iot})
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail);
+      cargarBahias();
+    }
+
+    cargarBahias();
+  </script>
+</body>
+</html>

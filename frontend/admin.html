@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrador - Parqueadero Unimonserrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-6">
+  <div class="max-w-5xl mx-auto space-y-6">
+    <div class="flex justify-between items-center bg-emerald-950 border border-amber-500/40 p-4 rounded-xl">
+      <div>
+        <span class="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Fundación Universitaria Monserrate</span>
+        <h1 class="font-bold text-xl text-white">Panel de Administración General</h1>
+        <p class="text-xs text-emerald-200/80">Tarifas Parametrizables (Carros, Motos y Bicicletas Visitantes), Roles y Sensores IoT</p>
+      </div>
+      <div class="flex gap-3">
+        <a href="simulador.html" target="_blank" class="text-xs bg-cyan-600/30 border border-cyan-500 px-3 py-2 rounded-lg text-cyan-300">Simulador IoT/LPR</a>
+        <button onclick="cerrarSesion()" class="text-xs bg-rose-600/30 border border-rose-500 px-3 py-2 rounded-lg">Salir</button>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
+        <h2 class="font-bold text-lg text-amber-400">Configuración de Tarifas</h2>
+        <div class="space-y-3 text-sm">
+          <div>
+            <label class="text-xs text-slate-400">Tipo de Vehículo (Comunidad Unimonserrate en Bici = $0)</label>
+            <select id="tipoTarifa" onchange="cargarValoresFormulario()" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+              <option value="carro">Carro</option>
+              <option value="moto">Moto</option>
+              <option value="bicicleta">Bicicleta (Solo Visitantes)</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs text-slate-400">Hasta 2 Horas ($)</label>
+              <input id="tFraccion" type="number" class="w-full p-2 rounded bg-slate-800 border border-slate-700">
+            </div>
+            <div>
+              <label class="text-xs text-slate-400">Más de 2h ($)</label>
+              <input id="tPlena" type="number" class="w-full p-2 rounded bg-slate-800 border border-slate-700">
+            </div>
+            <div>
+              <label class="text-xs text-slate-400">Mensualidad ($)</label>
+              <input id="tMensual" type="number" class="w-full p-2 rounded bg-slate-800 border border-slate-700">
+            </div>
+          </div>
+          <button onclick="guardarTarifa()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-lg">Guardar Nueva Tarifa</button>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800">
+          <h3 class="text-xs font-semibold text-slate-400 mb-2">Historial de Cambios Tarifarios</h3>
+          <div id="historialTarifas" class="space-y-1.5 text-xs max-h-40 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="font-bold text-lg text-cyan-400">Monitoreo Sensores IoT (30 Bahías)</h2>
+          <span class="text-xs text-slate-400">Sincronizado con Portería</span>
+        </div>
+        <div id="alertasSensores" class="hidden p-3 rounded bg-rose-950/70 border border-rose-500 text-rose-200 text-xs font-bold"></div>
+        <div id="gridSensores" class="grid grid-cols-5 gap-2 text-center text-xs"></div>
+      </div>
+    </div>
+
+    <div class="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
+      <h2 class="font-bold text-lg text-emerald-400">Seguridad y Asignación de Roles</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="text-xs text-slate-400 border-b border-slate-800">
+            <tr>
+              <th class="py-2">Nombre</th>
+              <th>Correo</th>
+              <th>Mensualidad</th>
+              <th>Rol Actual</th>
+              <th>Cambiar Rol</th>
+            </tr>
+          </thead>
+          <tbody id="tablaUsuarios" class="divide-y divide-slate-800"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const userLocal = JSON.parse(localStorage.getItem('usuario'));
+    if (!userLocal || userLocal.rol !== 'admin') window.location.href = 'index.html';
+
+    let tarifasActuales = {};
+
+    async function cargarTarifas() {
+      const res = await fetch('/api/admin/tarifas');
+      tarifasActuales = await res.json();
+      cargarValoresFormulario();
+      document.getElementById('historialTarifas').innerHTML = tarifasActuales.historial.map(t => `
+        <div class="bg-slate-950 p-2 rounded flex justify-between">
+          <span class="uppercase font-bold text-amber-300">${t.tipo_vehiculo}</span>
+          <span>≤2h: $${t.fraccion_2h.toLocaleString()} | >2h: $${t.plena_mas_2h.toLocaleString()} | Mes: $${t.mensualidad.toLocaleString()}</span>
+        </div>
+      `).join('');
+    }
+
+    function cargarValoresFormulario() {
+      const tipo = document.getElementById('tipoTarifa').value;
+      const datos = tarifasActuales[tipo];
+      if (!datos) return;
+      document.getElementById('tFraccion').value = datos.fraccion_2h;
+      document.getElementById('tPlena').value = datos.plena_mas_2h;
+      document.getElementById('tMensual').value = datos.mensualidad;
+    }
+
+    async function guardarTarifa() {
+      const payload = {
+        tipo_vehiculo: document.getElementById('tipoTarifa').value,
+        fraccion_2h: parseFloat(document.getElementById('tFraccion').value),
+        plena_mas_2h: parseFloat(document.getElementById('tPlena').value),
+        mensualidad: parseFloat(document.getElementById('tMensual').value)
+      };
+      const res = await fetch('/api/admin/tarifas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      alert(data.mensaje);
+      cargarTarifas();
+    }
+
+    async function cargarUsuarios() {
+      const res = await fetch('/api/admin/usuarios');
+      const usuarios = await res.json();
+      document.getElementById('tablaUsuarios').innerHTML = usuarios.map(u => `
+        <tr>
+          <td class="py-2.5 font-medium">${u.nombre}</td>
+          <td class="text-slate-400">${u.correo}</td>
+          <td>${u.mensualidad_activa ? '<span class="text-emerald-400 text-xs">Activa</span>' : '<span class="text-slate-500 text-xs">No</span>'}</td>
+          <td class="uppercase text-xs font-bold text-amber-300">${u.rol}</td>
+          <td>
+            <select onchange="cambiarRol(${u.id}, this.value)" class="bg-slate-800 p-1 rounded text-xs">
+              <option value="conductor" ${u.rol === 'conductor' ? 'selected' : ''}>Conductor</option>
+              <option value="guarda" ${u.rol === 'guarda' ? 'selected' : ''}>Guarda</option>
+              <option value="admin" ${u.rol === 'admin' ? 'selected' : ''}>Admin</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function cambiarRol(id, rol) {
+      await fetch(`/api/admin/usuarios/${id}/rol?nuevo_rol=${rol}`, { method: 'PUT' });
+      cargarUsuarios();
+    }
+
+    async function monitorearSensores() {
+      const res = await fetch('/api/iot/estado');
+      const data = await res.json();
+      const fallos = data.bahias.filter(b => !b.sensor_ok);
+      const alerta = document.getElementById('alertasSensores');
+      if (fallos.length > 0) {
+        alerta.classList.remove('hidden');
+        alerta.innerText = `ALERTA DE HARDWARE: Sensores desconectados o con falla: ${fallos.map(f => f.codigo).join(', ')}`;
+      } else {
+        alerta.classList.add('hidden');
+      }
+
+      document.getElementById('gridSensores').innerHTML = data.bahias.map(b => {
+        let color = !b.sensor_ok ? 'bg-rose-600 border-rose-400' : (b.ocupada ? 'bg-amber-600/40 border-amber-500' : 'bg-emerald-600/30 border-emerald-500');
+        return `<div class="p-2 rounded border ${color}">
+          <p class="font-bold">${b.codigo}</p>
+          <p class="text-[10px]">${!b.sensor_ok ? 'ERROR' : (b.ocupada ? 'OCUPADO' : 'LIBRE')}</p>
+        </div>`;
+      }).join('');
+    }
+
+    setInterval(monitorearSensores, 3000);
+
+    function cerrarSesion() {
+      localStorage.removeItem('usuario');
+      window.location.href = 'index.html';
+    }
+
+    cargarTarifas();
+    cargarUsuarios();
+    monitorearSensores();
+  </script>
+</body>
+</html>

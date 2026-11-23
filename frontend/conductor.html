@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Conductor - Parqueadero Unimonserrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-4 pb-20">
+  <div class="max-w-lg mx-auto space-y-5">
+    <!-- Header Unimonserrate -->
+    <div class="flex justify-between items-center bg-emerald-950 p-4 rounded-xl border border-emerald-700/50">
+      <div>
+        <span class="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Parqueadero Unimonserrate</span>
+        <h1 id="saludoUsuario" class="font-bold text-lg text-white">Hola</h1>
+        <p id="estadoMensualidad" class="text-xs text-emerald-300"></p>
+      </div>
+      <button onclick="cerrarSesion()" class="text-xs bg-rose-600/30 border border-rose-500 px-3 py-1.5 rounded-lg">Salir</button>
+    </div>
+
+    <!-- Cupos IoT en Tiempo Real (Carros, Motos, Bicicletas) -->
+    <div class="grid grid-cols-3 gap-2.5">
+      <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
+        <p class="text-[11px] text-slate-400">Carros Libres</p>
+        <p id="cuposCarros" class="text-2xl font-extrabold text-emerald-400 mt-0.5">-- / 10</p>
+      </div>
+      <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
+        <p class="text-[11px] text-slate-400">Motos Libres</p>
+        <p id="cuposMotos" class="text-2xl font-extrabold text-amber-400 mt-0.5">-- / 10</p>
+      </div>
+      <div class="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
+        <p class="text-[11px] text-slate-400">BiciParqueadero</p>
+        <p id="cuposBicis" class="text-2xl font-extrabold text-cyan-400 mt-0.5">-- / 10</p>
+      </div>
+    </div>
+
+    <!-- Código QR Dinámico de Acceso -->
+    <div class="bg-slate-900 p-6 rounded-2xl border border-emerald-700/40 text-center space-y-4">
+      <div class="flex justify-between items-center">
+        <span class="text-sm font-bold text-amber-400">Pase QR Dinámico</span>
+        <span id="contadorQR" class="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-mono">Expira en 60s</span>
+      </div>
+
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">Selecciona tu vehículo o bicicleta:</label>
+        <select id="selectPlaca" onchange="generarQR()" class="w-full p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-center font-bold text-sm"></select>
+      </div>
+
+      <div class="flex justify-center">
+        <div id="qrcode" class="bg-white p-4 rounded-xl shadow-lg"></div>
+      </div>
+
+      <p id="notaTarifaVehiculo" class="text-xs text-emerald-300 font-medium"></p>
+      <button onclick="copiarToken()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-slate-300">Copiar Token QR (Respaldo Demo)</button>
+    </div>
+
+    <!-- Pasarela de Pago de Mensualidad -->
+    <div id="cajaMensualidad" class="bg-gradient-to-r from-emerald-950 to-slate-900 p-4 rounded-xl border border-amber-500/40 space-y-3">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-amber-400 text-sm">Adquirir Mensualidad (Pase Libre 30 días)</h3>
+        <span class="text-xs text-emerald-300">Carro $75k | Moto $56k</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="abrirPasarela('PSE')" class="bg-sky-600 hover:bg-sky-500 py-2.5 rounded-lg font-bold text-xs">Pagar con PSE</button>
+        <button onclick="abrirPasarela('Tarjeta Crédito/Débito')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 py-2.5 rounded-lg font-bold text-xs">Pagar con Tarjeta</button>
+      </div>
+    </div>
+
+    <!-- Modal Realista de Pasarela de Pago (PSE / Tarjeta) -->
+    <div id="modalPasarela" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+      <div class="bg-slate-900 border border-amber-500/50 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+          <h3 id="tituloPasarela" class="font-bold text-amber-400">Pasarela de Pagos Unimonserrate</h3>
+          <button onclick="cerrarPasarela()" class="text-slate-400 hover:text-white text-sm">✕</button>
+        </div>
+
+        <div id="camposTarjeta" class="space-y-3 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Nombre del Titular</label>
+            <input id="pagoTitular" type="text" placeholder="Como aparece en la tarjeta" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Número de Tarjeta</label>
+            <input id="pagoNumero" type="text" maxlength="19" placeholder="4532 •••• •••• 8890" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700 font-mono">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-slate-400 block mb-1">Vencimiento (MM/AA)</label>
+              <input id="pagoExp" type="text" maxlength="5" placeholder="08/29" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">Código CVV</label>
+              <input id="pagoCvv" type="password" maxlength="4" placeholder="123" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+            </div>
+          </div>
+        </div>
+
+        <div id="camposPSE" class="hidden space-y-3 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Selecciona tu Banco (PSE)</label>
+            <select id="pagoBanco" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+              <option>Bancolombia</option>
+              <option>Davivienda</option>
+              <option>Banco de Bogotá</option>
+              <option>Nequi / Daviplata PSE</option>
+              <option>BBVA Colombia</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Cédula del Titular de la Cuenta</label>
+            <input id="pagoCedulaPSE" type="text" placeholder="Ej: 1010202030" class="w-full p-2.5 rounded bg-slate-800 border border-slate-700">
+          </div>
+        </div>
+
+        <button onclick="confirmarPagoReal()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm">Confirmar y Procesar Pago</button>
+      </div>
+    </div>
+
+    <!-- Registrar Nuevo Vehículo o Bicicleta -->
+    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3">
+      <h3 class="font-bold text-sm text-white">Registrar Vehículo o Bicicleta</h3>
+      <p class="text-[11px] text-emerald-300">Las bicicletas registradas por estudiantes y docentes tienen acceso 100% GRATUITO y control anti-robo.</p>
+      <div class="flex gap-2">
+        <input id="nuevaPlaca" type="text" placeholder="Placa o Serial Bici" class="flex-1 p-2 rounded bg-slate-800 border border-slate-700 uppercase text-sm">
+        <select id="nuevoTipo" class="p-2 rounded bg-slate-800 border border-slate-700 text-sm">
+          <option value="carro">Carro</option>
+          <option value="moto">Moto</option>
+          <option value="bicicleta">Bicicleta ($0)</option>
+        </select>
+        <button onclick="agregarVehiculo()" class="bg-emerald-500 text-slate-950 font-bold px-3 rounded text-sm">Agregar</button>
+      </div>
+    </div>
+
+    <!-- Historial de Accesos y Recibos -->
+    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-2">
+      <h3 class="font-bold text-sm">Historial de Ingresos y Recibos</h3>
+      <div id="listaHistorial" class="space-y-2 text-xs text-slate-300"></div>
+    </div>
+  </div>
+
+  <script>
+    const userLocal = JSON.parse(localStorage.getItem('usuario'));
+    if (!userLocal || userLocal.rol !== 'conductor') window.location.href = 'index.html';
+
+    let tokenActual = "";
+    let segundos = 60;
+    let intervaloReloj;
+    let metodoSeleccionado = "";
+
+    async function cargarPerfil() {
+      const res = await fetch(`/api/usuario/${userLocal.id}`);
+      const data = await res.json();
+      document.getElementById('saludoUsuario').innerText = data.nombre;
+      
+      if (data.mensualidad_activa) {
+        document.getElementById('estadoMensualidad').innerText = `Mensualidad ACTIVA (Pase Libre LPR/QR)`;
+        document.getElementById('cajaMensualidad').classList.add('hidden');
+      } else {
+        document.getElementById('estadoMensualidad').innerText = `Sin mensualidad (Pago por fracción o Bici Gratis)`;
+      }
+
+      const select = document.getElementById('selectPlaca');
+      select.innerHTML = data.vehiculos.map(v => `<option value="${v.placa}" data-tipo="${v.tipo}">${v.placa} (${v.tipo.toUpperCase()})</option>`).join('');
+      if (data.vehiculos.length > 0) generarQR();
+
+      document.getElementById('listaHistorial').innerHTML = data.historial.map(h => `
+        <div class="bg-slate-950 p-2.5 rounded border border-slate-800 flex justify-between">
+          <span><b>${h.placa}</b> (${h.tipo_vehiculo}) • ${h.estado}</span>
+          <span class="text-emerald-400 font-bold">$${h.valor_cobrado.toLocaleString()}</span>
+        </div>
+      `).join('') || '<p class="text-slate-500">Aún no tienes ingresos registrados.</p>';
+    }
+
+    async function generarQR() {
+      const select = document.getElementById('selectPlaca');
+      const placa = select.value;
+      if (!placa) return;
+      const tipo = select.options[select.selectedIndex].getAttribute('data-tipo');
+      document.getElementById('notaTarifaVehiculo').innerText = tipo === 'bicicleta'
+        ? 'Beneficio Unimonserrate: Acceso en Bicicleta $0 (Sin costo)'
+        : 'Este código QR cambia automáticamente cada 60 segundos';
+
+      const res = await fetch(`/api/qr/${userLocal.id}/${placa}`);
+      const data = await res.json();
+      tokenActual = data.token_qr;
+
+      const qrDiv = document.getElementById('qrcode');
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, { text: tokenActual, width: 175, height: 175 });
+
+      segundos = 60;
+      clearInterval(intervaloReloj);
+      intervaloReloj = setInterval(() => {
+        segundos--;
+        document.getElementById('contadorQR').innerText = `Expira en ${segundos}s`;
+        if (segundos <= 0) generarQR();
+      }, 1000);
+    }
+
+    function copiarToken() {
+      navigator.clipboard.writeText(tokenActual);
+      alert("Token QR copiado. Pégalo en Portería antes de que lleguen los 60 segundos.");
+    }
+
+    async function actualizarCupos() {
+      const res = await fetch('/api/iot/estado');
+      const data = await res.json();
+      document.getElementById('cuposCarros').innerText = `${data.carros_libres} / ${data.carros_total}`;
+      document.getElementById('cuposMotos').innerText = `${data.motos_libres} / ${data.motos_total}`;
+      document.getElementById('cuposBicis').innerText = `${data.bicis_libres} / ${data.bicis_total}`;
+    }
+
+    async function agregarVehiculo() {
+      const placa = document.getElementById('nuevaPlaca').value;
+      const tipo = document.getElementById('nuevoTipo').value;
+      const res = await fetch('/api/vehiculos', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({usuario_id: userLocal.id, placa, tipo})
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail);
+      alert(data.mensaje);
+      document.getElementById('nuevaPlaca').value = "";
+      cargarPerfil();
+    }
+
+    function abrirPasarela(metodo) {
+      metodoSeleccionado = metodo;
+      document.getElementById('tituloPasarela').innerText = `Pago Seguro vía ${metodo}`;
+      if (metodo === 'PSE') {
+        document.getElementById('camposPSE').classList.remove('hidden');
+        document.getElementById('camposTarjeta').classList.add('hidden');
+      } else {
+        document.getElementById('camposTarjeta').classList.remove('hidden');
+        document.getElementById('camposPSE').classList.add('hidden');
+      }
+      document.getElementById('modalPasarela').classList.remove('hidden');
+    }
+
+    function cerrarPasarela() {
+      document.getElementById('modalPasarela').classList.add('hidden');
+    }
+
+    async function confirmarPagoReal() {
+      const res = await fetch('/api/pagar-mensualidad', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({usuario_id: userLocal.id, metodo_pago: metodoSeleccionado})
+      });
+      const data = await res.json();
+      cerrarPasarela();
+      alert(data.mensaje);
+      cargarPerfil();
+    }
+
+    function cerrarSesion() {
+      localStorage.removeItem('usuario');
+      window.location.href = 'index.html';
+    }
+
+    cargarPerfil();
+    actualizarCupos();
+    setInterval(actualizarCupos, 3000);
+  </script>
+</body>
+</html>

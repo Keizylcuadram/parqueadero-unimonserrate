@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parqueadero Unimonserrate - Acceso Seguro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .bg-unimonserrate {
+      background-image: linear-gradient(rgba(6, 28, 20, 0.86), rgba(10, 38, 28, 0.92)), url('https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1920&q=80');
+      background-size: cover;
+      background-position: center;
+    }
+  </style>
+</head>
+<body class="bg-unimonserrate text-white min-h-screen flex items-center justify-center p-4">
+  <div class="bg-emerald-950/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md border border-emerald-600/40">
+    <div class="text-center mb-6">
+      <span class="inline-block px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[11px] font-bold tracking-wider uppercase mb-2">Fundación Universitaria Monserrate</span>
+      <h1 class="text-3xl font-extrabold text-white">Parqueadero <span class="text-amber-400">Unimonserrate</span></h1>
+      <p class="text-emerald-200/80 text-xs mt-1">Control Seguro de Movilidad, Bicis y Acceso IoT</p>
+    </div>
+
+    <div id="formLogin" class="space-y-4">
+      <div id="bannerRol" class="hidden text-center p-2 rounded-lg bg-emerald-900/80 border border-amber-400/40 text-xs text-amber-300 font-semibold"></div>
+
+      <div>
+        <label class="block text-xs font-semibold text-emerald-200 mb-1">Correo Institucional</label>
+        <input id="correo" type="email" placeholder="usuario@unimonserrate.edu.co" class="w-full p-3 rounded-lg bg-emerald-900/70 border border-emerald-700 focus:outline-none focus:border-amber-400 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-emerald-200 mb-1">Contraseña</label>
+        <input id="password" type="password" placeholder="Ingresa tu contraseña" class="w-full p-3 rounded-lg bg-emerald-900/70 border border-emerald-700 focus:outline-none focus:border-amber-400 text-sm">
+      </div>
+      <div id="campoCodigoSeguridad" class="hidden">
+        <label id="labelCodigoSeguridad" class="block text-xs font-bold text-amber-300 mb-1">Código de Autorización (4 dígitos)</label>
+        <input id="codigoSeguridad" type="password" maxlength="4" placeholder="••••" class="w-full p-3 rounded-lg bg-amber-950/60 border border-amber-500 focus:outline-none text-sm text-center tracking-widest font-bold">
+      </div>
+      <button onclick="iniciarSesion()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded-lg transition shadow-lg">Validar Credenciales e Ingresar</button>
+      
+      <div class="pt-4 border-t border-emerald-800">
+        <p class="text-xs text-emerald-300/70 text-center mb-2">Selecciona tu tipo de ingreso (requiere autenticación):</p>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <button onclick="seleccionarPerfil('comunidad')" class="bg-emerald-900 hover:bg-emerald-800 border border-emerald-700 p-2 rounded">Estudiante / Docente</button>
+          <button onclick="seleccionarPerfil('guarda')" class="bg-amber-600/30 border border-amber-500/50 hover:bg-amber-600/50 p-2 rounded">🔒 Portería</button>
+          <button onclick="seleccionarPerfil('admin')" class="bg-indigo-600/30 border border-indigo-500/50 hover:bg-indigo-600/50 p-2 rounded">🔒 Admin</button>
+        </div>
+      </div>
+      <p class="text-center text-xs text-emerald-200 mt-4">¿Eres estudiante o docente nuevo? <button onclick="toggleRegistro()" class="text-amber-400 font-bold underline">Regístrate aquí</button></p>
+    </div>
+
+    <div id="formRegistro" class="space-y-3 hidden">
+      <h2 class="text-lg font-bold text-center text-amber-400">Registro Comunidad Unimonserrate</h2>
+      <input id="regNombre" type="text" placeholder="Nombres y Apellidos" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="regCedula" type="text" placeholder="Cédula / ID" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+        <input id="regCelular" type="text" placeholder="Celular" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <select id="regVinculo" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+          <option value="Estudiante">Estudiante</option>
+          <option value="Docente">Docente</option>
+          <option value="Administrativo">Administrativo</option>
+        </select>
+        <input id="regFacultad" type="text" placeholder="Facultad / Programa" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+      </div>
+      <input id="regCorreo" type="email" placeholder="Correo (@unimonserrate.edu.co)" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+      <input id="regPass" type="password" placeholder="Contraseña segura" class="w-full p-2.5 rounded-lg bg-emerald-900/70 border border-emerald-700 text-sm">
+      <button onclick="registrar()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-lg">Crear Cuenta</button>
+      <button onclick="toggleRegistro()" class="w-full text-xs text-emerald-300 underline">Volver al Login</button>
+    </div>
+  </div>
+
+  <script>
+    let modoActual = 'comunidad';
+
+    function toggleRegistro() {
+      document.getElementById('formLogin').classList.toggle('hidden');
+      document.getElementById('formRegistro').classList.toggle('hidden');
+    }
+
+    function seleccionarPerfil(perfil) {
+      modoActual = perfil;
+      const banner = document.getElementById('bannerRol');
+      const campoCod = document.getElementById('campoCodigoSeguridad');
+      const labelCod = document.getElementById('labelCodigoSeguridad');
+      document.getElementById('correo').value = '';
+      document.getElementById('password').value = '';
+      document.getElementById('codigoSeguridad').value = '';
+
+      if (perfil === 'comunidad') {
+        banner.classList.remove('hidden');
+        banner.innerText = 'Ingreso Comunidad Universitaria (Digita tu correo y contraseña)';
+        campoCod.classList.add('hidden');
+      } else if (perfil === 'guarda') {
+        banner.classList.remove('hidden');
+        banner.innerText = 'Acceso Restringido: Personal de Portería en Turno';
+        labelCod.innerText = 'Código de Turno de Portería (4 dígitos)';
+        campoCod.classList.remove('hidden');
+      } else if (perfil === 'admin') {
+        banner.classList.remove('hidden');
+        banner.innerText = 'Acceso Restringido: Dirección Administrativa';
+        labelCod.innerText = 'PIN Maestro de Administración (4 dígitos)';
+        campoCod.classList.remove('hidden');
+      }
+      document.getElementById('correo').focus();
+    }
+
+    async function iniciarSesion() {
+      const correo = document.getElementById('correo').value.trim();
+      const password = document.getElementById('password').value;
+      const codigo_seguridad = document.getElementById('codigoSeguridad').value.trim();
+
+      if (!correo || !password) {
+        return alert('Por seguridad, debes ingresar tu correo institucional y tu contraseña.');
+      }
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({correo, password, codigo_seguridad})
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail || 'Credenciales o código de autorización incorrectos');
+
+      localStorage.setItem('usuario', JSON.stringify(data));
+      if (data.rol === 'conductor') window.location.href = 'conductor.html';
+      else if (data.rol === 'guarda') window.location.href = 'guarda.html';
+      else if (data.rol === 'admin') window.location.href = 'admin.html';
+    }
+
+    async function registrar() {
+      const payload = {
+        nombre: document.getElementById('regNombre').value,
+        cedula: document.getElementById('regCedula').value,
+        celular: document.getElementById('regCelular').value,
+        tipo_vinculo: document.getElementById('regVinculo').value,
+        facultad: document.getElementById('regFacultad').value,
+        correo: document.getElementById('regCorreo').value,
+        password: document.getElementById('regPass').value
+      };
+      if (!payload.nombre || !payload.correo || !payload.password) return alert("Completa nombre, correo y contraseña");
+      const res = await fetch('/api/registro', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail);
+      alert('¡Cuenta creada en Unimonserrate! Ahora inicia sesión con tu correo y contraseña.');
+      document.getElementById('correo').value = payload.correo;
+      toggleRegistro();
+    }
+  </script>
+</body>
+</html>

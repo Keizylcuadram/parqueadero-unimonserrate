@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portería Guarda - Parqueadero Unimonserrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen p-4">
+  <div class="max-w-3xl mx-auto space-y-6">
+    <!-- Header restringido solo a Portería en Turno -->
+    <div class="flex flex-wrap justify-between items-center gap-2 bg-amber-600/20 border border-amber-500/40 p-4 rounded-xl">
+      <div>
+        <h1 class="font-bold text-lg text-amber-400">Módulo de Portería y Talanquera</h1>
+        <p id="infoGuardaTurno" class="text-xs text-slate-300">Personal Autorizado en Turno</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="simulador.html" target="_blank" class="text-xs bg-cyan-600/30 border border-cyan-500 px-3 py-1.5 rounded-lg text-cyan-300 font-semibold">Hardware IoT / Talanquera</a>
+        <button onclick="cerrarSesion()" class="text-xs bg-rose-600/30 border border-rose-500 px-3 py-1.5 rounded-lg">Cerrar Turno</button>
+      </div>
+    </div>
+
+    <!-- Lector QR -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-4">
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <h2 class="font-bold text-emerald-400">1. Escáner de Entrada / Salida (QR)</h2>
+        <div class="flex gap-2">
+          <button onclick="iniciarCamara()" class="bg-emerald-600 hover:bg-emerald-500 text-xs font-bold px-3 py-1.5 rounded-lg">Activar Cámara</button>
+          <label class="bg-indigo-600 hover:bg-indigo-500 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer">
+            Subir Imagen QR
+            <input type="file" accept="image/*" onchange="leerImagenQR(event)" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <div id="lectorCamara" class="hidden rounded-xl overflow-hidden border border-emerald-500/40 max-w-sm mx-auto"></div>
+      <div id="lectorArchivoOculto" class="hidden"></div>
+
+      <div class="flex gap-2">
+        <input id="inputTokenQR" type="text" placeholder="Pega aquí el token QR o código INVITADO:PLACA..." class="flex-1 p-3 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono">
+        <button onclick="procesarQR()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 rounded-lg">Leer</button>
+      </div>
+
+      <!-- Resultado Visual del Escaneo -->
+      <div id="modalResultado" class="hidden p-4 rounded-xl border"></div>
+    </div>
+
+    <!-- Registro de Invitados y Visitantes -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+      <h2 class="font-bold text-cyan-400">2. Registro Completo de Visitante / Invitado</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
+        <input id="invNombre" type="text" placeholder="Nombre completo del visitante" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+        <input id="invCedula" type="text" placeholder="Cédula de ciudadanía" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+        <input id="invCelular" type="text" placeholder="Celular (Ej: 3101234567)" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+        <input id="invDestino" type="text" placeholder="Oficina / Facultad destino" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+        <input id="invPlaca" type="text" placeholder="Placa (ABC-123) o Serial Bici" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700 uppercase font-bold">
+        <select id="invTipo" class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+          <option value="carro">Carro (Tarifa Visitante)</option>
+          <option value="moto">Moto (Tarifa Visitante)</option>
+          <option value="bicicleta">Bicicleta Visitante ($2.000 frac.)</option>
+        </select>
+      </div>
+      <button onclick="ingresarInvitado()" class="w-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 rounded-lg">Registrar Invitado y Generar Ticket QR</button>
+
+      <!-- Ticket Generado para el Visitante -->
+      <div id="ticketVisitante" class="hidden bg-white text-slate-900 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 border-2 border-dashed border-cyan-500">
+        <div class="space-y-1 text-xs">
+          <p class="font-extrabold text-sm text-emerald-800">TICKET DE VISITANTE - UNIMONSERRATE</p>
+          <p id="tkDatos"></p>
+          <p class="font-bold text-emerald-700">SEÑAL HARDWARE: TALANQUERA DE ENTRADA ABIERTA</p>
+          <p class="text-[11px] text-slate-500">Presente este código QR en portería al salir.</p>
+          <a id="btnWhatsappTicket" target="_blank" class="inline-block mt-2 bg-emerald-600 text-white font-bold px-3 py-1.5 rounded">Enviar Ticket por WhatsApp</a>
+        </div>
+        <div id="qrTicketInvitado" class="p-2 bg-white border rounded"></div>
+      </div>
+    </div>
+
+    <!-- Vehículos Adentro Actualmente -->
+    <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 space-y-3">
+      <div class="flex justify-between items-center">
+        <h2 class="font-bold text-amber-400">3. Vehículos Dentro del Parqueadero (Liquidar Salida)</h2>
+        <button onclick="cargarActivos()" class="text-xs text-slate-400 underline">Actualizar</button>
+      </div>
+      <div id="listaActivos" class="space-y-2 text-xs"></div>
+    </div>
+  </div>
+
+  <script>
+    const userLocal = JSON.parse(localStorage.getItem('usuario'));
+    if (!userLocal || userLocal.rol !== 'guarda') {
+      alert('Acceso restringido: Solo personal de portería autorizado en turno.');
+      window.location.href = 'index.html';
+    } else {
+      document.getElementById('infoGuardaTurno').innerText = `Operador en turno: ${userLocal.nombre}`;
+    }
+
+    let scannerCamara = null;
+
+    function iniciarCamara() {
+      const divCam = document.getElementById('lectorCamara');
+      divCam.classList.remove('hidden');
+      if (!scannerCamara) {
+        scannerCamara = new Html5Qrcode("lectorCamara");
+      }
+      scannerCamara.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        (decodedText) => {
+          document.getElementById('inputTokenQR').value = decodedText;
+          scannerCamara.stop().then(() => divCam.classList.add('hidden'));
+          procesarQR();
+        },
+        () => {}
+      ).catch(err => alert("No se pudo abrir la cámara: " + err));
+    }
+
+    function leerImagenQR(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const html5QrCode = new Html5Qrcode("lectorArchivoOculto");
+      html5QrCode.scanFile(file, true)
+        .then(decodedText => {
+          document.getElementById('inputTokenQR').value = decodedText;
+          procesarQR();
+        })
+        .catch(() => alert("No se detectó un código QR válido en la imagen."));
+    }
+
+    async function procesarQR() {
+      const token_qr = document.getElementById('inputTokenQR').value.trim();
+      if (!token_qr) return alert("Pega o escanea un token QR primero");
+
+      const res = await fetch('/api/porteria/escanear-qr', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({token_qr})
+      });
+      const data = await res.json();
+      mostrarResultadoPorteria(res.ok, data);
+      document.getElementById('inputTokenQR').value = '';
+      cargarActivos();
+    }
+
+    function mostrarResultadoPorteria(ok, data) {
+      const modal = document.getElementById('modalResultado');
+      modal.classList.remove('hidden');
+      if (!ok) {
+        modal.className = "p-4 rounded-xl border border-rose-500 bg-rose-950/60 text-rose-200";
+        modal.innerHTML = `<p class="font-bold text-lg">ACCESO DENEGADO / TALANQUERA CERRADA</p><p class="text-sm">${data.detail}</p>`;
+        return;
+      }
+      if (data.accion === "ENTRADA") {
+        modal.className = "p-4 rounded-xl border border-emerald-500 bg-emerald-950/60 text-emerald-200";
+        modal.innerHTML = `
+          <p class="font-bold text-lg text-emerald-400">ENTRADA AUTORIZADA</p>
+          <p class="text-sm"><b>Conductor:</b> ${data.conductor}</p>
+          <p class="text-sm"><b>Vehículo:</b> ${data.placa} (${data.tipo.toUpperCase()})</p>
+          <p class="text-sm"><b>Bahía IoT Asignada:</b> <span class="text-amber-300 font-bold">${data.bahia}</span></p>
+          <p class="text-xs mt-1">${data.mensualidad ? 'Pase libre vigente / Beneficio Bici $0' : 'Tarifa por fracción activa'}</p>
+          <p class="mt-2 inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-xs font-extrabold">
+            SEÑAL HARDWARE: TALANQUERA DE ENTRADA ${data.talanquera || 'ABIERTA'}
+          </p>
+        `;
+      } else {
+        modal.className = "p-4 rounded-xl border border-amber-500 bg-amber-950/60 text-amber-200";
+        modal.innerHTML = `
+          <p class="font-bold text-lg text-amber-400">LIQUIDACIÓN DE SALIDA</p>
+          <p class="text-sm"><b>Conductor:</b> ${data.conductor} • <b>Placa:</b> ${data.placa}</p>
+          <p class="text-sm"><b>Tiempo de estadía:</b> ${data.tiempo_minutos} min</p>
+          <p class="text-2xl font-extrabold text-white mt-2">TOTAL A COBRAR: $${data.valor_a_cobrar.toLocaleString()}</p>
+          <p class="mt-2 inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-xs font-extrabold">
+            SEÑAL HARDWARE: TALANQUERA DE SALIDA ${data.talanquera || 'ABIERTA'}
+          </p>
+        `;
+      }
+    }
+
+    async function ingresarInvitado() {
+      const payload = {
+        nombre: document.getElementById('invNombre').value,
+        cedula: document.getElementById('invCedula').value,
+        celular: document.getElementById('invCelular').value,
+        destino: document.getElementById('invDestino').value,
+        placa: document.getElementById('invPlaca').value,
+        tipo_vehiculo: document.getElementById('invTipo').value
+      };
+      if (!payload.nombre || !payload.cedula || !payload.placa) {
+        return alert("Completa al menos nombre, cédula y placa/serial del visitante");
+      }
+      const res = await fetch('/api/porteria/invitado', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) return alert(data.detail);
+
+      document.getElementById('ticketVisitante').classList.remove('hidden');
+      document.getElementById('tkDatos').innerHTML = `
+        <b>Ticket #${data.ticket_id}</b> • Visitante: ${data.nombre}<br>
+        Placa/Serial: <b>${data.placa}</b> • Destino: ${data.destino}<br>
+        Código Salida: <code class="bg-slate-200 px-1 rounded">${data.qr_invitado}</code>
+      `;
+      const qrBox = document.getElementById('qrTicketInvitado');
+      qrBox.innerHTML = '';
+      new QRCode(qrBox, { text: data.qr_invitado, width: 110, height: 110 });
+
+      const msg = encodeURIComponent(`Bienvenido a Unimonserrate, ${data.nombre}. Tu ingreso en ${data.placa} quedó registrado (Ticket #${data.ticket_id}). Código de salida: ${data.qr_invitado}`);
+      document.getElementById('btnWhatsappTicket').href = `https://wa.me/57${data.celular}?text=${msg}`;
+
+      ['invNombre', 'invCedula', 'invCelular', 'invDestino', 'invPlaca'].forEach(id => document.getElementById(id).value = '');
+      cargarActivos();
+    }
+
+    async function cobrarSalida(placa) {
+      const res = await fetch('/api/porteria/salida-placa', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({placa})
+      });
+      const data = await res.json();
+      mostrarResultadoPorteria(res.ok, data);
+      cargarActivos();
+    }
+
+    async function cargarActivos() {
+      const res = await fetch('/api/porteria/activos');
+      const data = await res.json();
+      const lista = data.adentro || [];
+      document.getElementById('listaActivos').innerHTML = `
+        <div class="flex justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-700/60">
+          <span>Estacionados adentro ahora: <b class="text-white">${lista.length}</b></span>
+          <span>Total vehículos inscritos en campus: <b class="text-emerald-400">${data.total_inscritos}</b></span>
+        </div>
+      ` + (lista.map(v => `
+        <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 flex justify-between items-center">
+          <div>
+            <p class="font-bold text-white text-sm">${v.placa} <span class="text-[10px] px-2 py-0.5 rounded ${v.es_invitado ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}">${v.es_invitado ? 'INVITADO: ' + (v.invitado_nombre || '') : 'UNIVERSITARIO'}</span></p>
+            <p class="text-slate-400">Ingreso: ${new Date(v.hora_entrada).toLocaleTimeString()} • ${v.tipo_vehiculo.toUpperCase()}</p>
+          </div>
+          <button onclick="cobrarSalida('${v.placa}')" class="bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold px-3 py-2 rounded-lg text-xs">Liquidar Salida</button>
+        </div>
+      `).join('') || '<p class="text-slate-500 pt-2">No hay vehículos adentro en este momento.</p>');
+    }
+
+    function cerrarSesion() {
+      localStorage.removeItem('usuario');
+      window.location.href = 'index.html';
+    }
+
+    cargarActivos();
+    setInterval(cargarActivos, 4000);
+  </script>
+</body>
+</html>
